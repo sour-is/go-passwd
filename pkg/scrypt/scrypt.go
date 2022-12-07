@@ -16,7 +16,7 @@ import (
 type scryptpw struct {
 	N       int // CPU/memory cost parameter (logN)
 	R       int // block size parameter (octets)
-	P       int // parallelisation parameter (positive int)
+	P       int // parallelization parameter (positive int)
 	SaltLen int // bytes to use as salt (octets)
 	DKLen   int // length of the derived key (octets)
 
@@ -29,7 +29,7 @@ type scryptpw struct {
 type scryptArgs struct {
 	N       int // CPU/memory cost parameter (logN)
 	R       int // block size parameter (octets)
-	P       int // parallelisation parameter (positive int)
+	P       int // parallelization parameter (positive int)
 	SaltLen int // bytes to use as salt (octets)
 	DKLen   int // length of the derived key (octets)
 
