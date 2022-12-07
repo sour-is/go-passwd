@@ -101,6 +101,36 @@ func (p *argon) Passwd(pass string, check string) (string, error) {
 func (p *argon) ApplyPasswd(passwd *passwd.Passwd) {
 	passwd.Register(p.name, p)
 }
+func (s *argon) IsPreferred(hash string) bool {
+	args, err := s.parseArgs(hash)
+	if err != nil {
+		return false
+	}
+
+	if args.version < s.version {
+		return false
+	}
+	if args.time < s.time {
+		return false
+	}
+	if args.memory < s.memory {
+		return false
+	}
+	if args.threads < s.threads {
+		return false
+	}
+	if args.keyLen < s.keyLen {
+		return false
+	}
+	if len(args.salt) < int(s.saltLen) {
+		return false
+	}
+	if len(args.hash) < int(s.keyLen) {
+		return false
+	}
+
+	return true
+}
 func (p *argon) defaultArgs() *pwArgs {
 	return &pwArgs{
 		name:    p.name,

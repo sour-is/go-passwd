@@ -62,6 +62,12 @@ func (p *Passwd) Passwd(pass, hash string) (string, error) {
 func (p *Passwd) IsPreferred(hash string) bool {
 	_, algo := p.getAlgo(hash)
 	if algo != nil && algo == p.d {
+
+		// if the algorithem defines its own check for preference.
+		if ck, ok := algo.(interface{ IsPreferred(string) bool }); ok {
+			return ck.IsPreferred(hash)
+		}
+
 		return true
 	}
 	return false

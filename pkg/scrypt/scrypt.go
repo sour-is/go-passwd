@@ -93,6 +93,30 @@ func (s *scryptpw) ApplyPasswd(p *passwd.Passwd) {
 		p.SetFallthrough(s)
 	}
 }
+func (s *scryptpw) IsPreferred(hash string) bool {
+	args, err := s.parseArgs(hash)
+	if err != nil {
+		return false
+	}
+
+	if args.N < s.N {
+		return false
+	}
+	if args.R < s.R {
+		return false
+	}
+	if args.P < s.P {
+		return false
+	}
+	if args.SaltLen < s.SaltLen {
+		return false
+	}
+	if args.DKLen < s.DKLen {
+		return false
+	}
+
+	return true
+}
 func (s *scryptpw) defaultArgs() *scryptArgs {
 	return &scryptArgs{
 		name:    s.name,
@@ -145,11 +169,13 @@ func (s *scryptpw) parseArgs(hash string) (*scryptArgs, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%w: corrupt salt part", passwd.ErrBadHash)
 	}
+	args.SaltLen = len(args.salt)
 
 	args.hash, err = s.encoder.DecodeString(hash)
 	if err != nil {
 		return nil, fmt.Errorf("%w: corrupt hash part", passwd.ErrBadHash)
 	}
+	args.DKLen = len(args.hash)
 
 	return args, nil
 }
