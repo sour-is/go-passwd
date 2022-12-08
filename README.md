@@ -6,7 +6,7 @@
 
 Here is an example of usage:
 
-```
+```go
 func Example() {
 	pass := "my_pass"
 	hash := "my_pass"
@@ -42,11 +42,11 @@ This shows how one would set a preferred hashing type and if the current version
 
 # Fallthrough
 
-> Hold up now, that example hash doesn’t have a $ prefix!
+> Hold up now, that example hash doesn’t have a `$` prefix!
 
 Well for this there is the option for a hash type to set itself as a fall through if a matching hash doesn’t exist. This is good for legacy password types that don’t follow the convention.
 
-```
+```go
 func (p *plainPasswd) ApplyPasswd(passwd *passwd.Passwd) {
 	passwd.Register("plain", p)
 	passwd.SetFallthrough(p)
@@ -56,11 +56,11 @@ func (p *plainPasswd) ApplyPasswd(passwd *passwd.Passwd) {
 https://github.com/sour-is/go-passwd/blob/main/passwd_test.go#L28-L31
 
 
-# Custom Prefence checks
+# Custom Preference Checks
 
-Circling back to the IsPreferred method. A hasher can define its own IsPreferred method that will be called to check if the current hash meets the complexity requirements. This is good for updating the password hashes to be more secure over time.
+Circling back to the `IsPreferred` method. A hasher can define its own `IsPreferred` method that will be called to check if the current hash meets the complexity requirements. This is good for updating the password hashes to be more secure over time.
 
-```
+```go
 func (p *Passwd) IsPreferred(hash string) bool {
 	_, algo := p.getAlgo(hash)
 	if algo != nil && algo == p.d {
@@ -78,4 +78,4 @@ func (p *Passwd) IsPreferred(hash string) bool {
 
 https://github.com/sour-is/go-passwd/blob/main/passwd.go#L62-L74
 
-example: https://github.com/sour-is/go-passwd/blob/main/pkg/argon2/argon2.go#L104-L133
+Example: https://github.com/sour-is/go-passwd/blob/main/pkg/argon2/argon2.go#L104-L133
