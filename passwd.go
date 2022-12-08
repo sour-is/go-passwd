@@ -75,6 +75,10 @@ func (p *Passwd) IsPreferred(hash string) bool {
 
 func (p *Passwd) getAlgo(hash string) (string, Passwder) {
 	var algo string
+	if !strings.HasPrefix(hash, "$") {
+		return p.getName(p.f), p.f
+	}
+
 	if _, h, ok := strings.Cut(hash, "$"); ok {
 		algo, _, ok = strings.Cut(h, "$")
 		if !ok {
