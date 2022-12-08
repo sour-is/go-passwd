@@ -8,6 +8,7 @@ import (
 
 	"github.com/sour-is/go-passwd"
 	"github.com/sour-is/go-passwd/pkg/scrypt"
+	"github.com/sour-is/go-passwd/pkg/unix"
 )
 
 func TestPasswdHash(t *testing.T) {
@@ -37,4 +38,22 @@ func TestPasswdHash(t *testing.T) {
 			is.Equal(hash, tt.hash)
 		})
 	}
+}
+
+func TestPasswdIsPreferred(t *testing.T) {
+	is := is.New(t)
+
+	pass := passwd.New(scrypt.Scrypt2, &unix.MD5{})
+
+	ok := pass.IsPreferred("16384$8$1$b97ed09792dd74b71dcb7fc8caf04a89$0b5cda82b17298ec4bf6d2139f7ea8587d8478fcc68c09e2506a7cf08b2817c0")
+	is.True(!ok)
+
+	ok = pass.IsPreferred("$s2$16384$8$1$iEdwbgXyKa5GNGNW/0NsOA$9YN/hzbskVVDZ887ppqv5su0n8SxVXwDB/rhVhAc9xQ")
+	is.True(ok)
+
+	ok = pass.IsPreferred("$s2$16384$7$1$iEdwbgXyKa5GNGNW/0NsOA$9YN/hzbskVVDZ887ppqv5su0n8SxVXwDB/rhVhAc9xQ")
+	is.True(!ok)
+
+	ok = pass.IsPreferred("$1$76a2173be6393254e72ffa4d6df1030a")
+	is.True(!ok)
 }

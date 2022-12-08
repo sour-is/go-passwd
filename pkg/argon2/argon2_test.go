@@ -8,6 +8,7 @@ import (
 
 	"github.com/sour-is/go-passwd"
 	"github.com/sour-is/go-passwd/pkg/argon2"
+	"github.com/sour-is/go-passwd/pkg/unix"
 )
 
 func TestPasswdHash(t *testing.T) {
@@ -37,4 +38,19 @@ func TestPasswdHash(t *testing.T) {
 			is.Equal(hash, tt.hash)
 		})
 	}
+}
+
+func TestPasswdIsPreferred(t *testing.T) {
+	is := is.New(t)
+
+	pass := passwd.New(argon2.Argon2i, &unix.MD5{})
+
+	ok := pass.IsPreferred("$argon2i$v=19,m=32768,t=3,p=4$LdaB2Z4EI4lwpxTc78QUFw$VhlPSK0tdF226QCLC24IIrmQcMBmg47Ik9h/Yq6htFI")
+	is.True(ok)
+
+	ok = pass.IsPreferred("$argon2i$v=19,m=1024,t=2,p=4$LdaB2Z4EI4lwpxTc78QUFw$VhlPSK0tdF226QCLC24IIrmQcMBmg47Ik9h/Yq6htFI")
+	is.True(!ok)
+
+	ok = pass.IsPreferred("$1$76a2173be6393254e72ffa4d6df1030a")
+	is.True(!ok)
 }
