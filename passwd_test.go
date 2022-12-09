@@ -30,6 +30,9 @@ func (p *plainPasswd) ApplyPasswd(passwd *passwd.Passwd) {
 	passwd.SetFallthrough(p)
 }
 
+// Example of upgrading password hash to a greater complexity.
+//
+// Note: This example uses very unsecure hash functions to allow for predictable output. Use of argon2.Argon2id or scrypt.Scrypt2 for greater hash security is recommended.
 func Example() {
 	pass := "my_pass"
 	hash := "my_pass"

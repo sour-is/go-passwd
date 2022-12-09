@@ -14,7 +14,7 @@ func TestPasswdHash(t *testing.T) {
 	type testCase struct {
 		pass, hash string
 	}
-	
+
 	tests := []testCase{
 		{"passwd", "$1$76a2173be6393254e72ffa4d6df1030a"},
 		{"passwd", "$2a$10$GkJwB.nOaaeAvRGgyl2TI.kruM8e.iIo.OozgdslegpNlC/vIFKRq"},

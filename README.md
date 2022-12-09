@@ -9,11 +9,11 @@ Here is an example of usage:
 ```go
 func Example() {
 	pass := "my_pass"
-	hash := "my_pass"
+	hash := "$1$81ed91e1131a3a5a50d8a68e8ef85fa0"
 
 	pwd := passwd.New(
-		&unix.MD5{}, // first is preferred type.
-		&plainPasswd{},
+		argon2.Argon2id, // first is preferred type.
+		&unix.MD5{},
 	)
 
 	_, err := pwd.Passwd(pass, hash)
@@ -32,7 +32,7 @@ func Example() {
 	}
 
 	// Output:
-	//  new hash: $1$81ed91e1131a3a5a50d8a68e8ef85fa0
+	//  new hash: $argon2id$...
 }
 ```
 https://github.com/sour-is/go-passwd/blob/main/passwd_test.go#L33-L59
