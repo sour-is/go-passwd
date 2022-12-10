@@ -1,12 +1,12 @@
 package argon2
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"golang.org/x/crypto/argon2"
 
@@ -73,35 +73,35 @@ func NewArgon2id(
 	}
 }
 
-func (p *argon) Passwd(pass string, check string) (string, error) {
+func (p *argon) Passwd(pass, check []byte) ([]byte, error) {
 	var args *pwArgs
 	var err error
 
-	if check == "" {
+	if check == nil {
 		args = p.defaultArgs()
 		_, err := rand.Read(args.salt)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		args.hash = p.keyFn([]byte(pass), args.salt, args.time, args.memory, args.threads, args.keyLen)
+		args.hash = p.keyFn(pass, args.salt, args.time, args.memory, args.threads, args.keyLen)
 	} else {
 		args, err = p.parseArgs(check)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		hash := p.keyFn([]byte(pass), args.salt, args.time, args.memory, args.threads, args.keyLen)
+		hash := p.keyFn(pass, args.salt, args.time, args.memory, args.threads, args.keyLen)
 
 		if subtle.ConstantTimeCompare(hash, args.hash) == 0 {
-			return "", passwd.ErrNoMatch
+			return nil, passwd.ErrNoMatch
 		}
 	}
 
-	return args.String(), nil
+	return args.Bytes(), nil
 }
 func (p *argon) ApplyPasswd(passwd *passwd.Passwd) {
 	passwd.Register(p.name, p)
 }
-func (s *argon) IsPreferred(hash string) bool {
+func (s *argon) IsPreferred(hash []byte) bool {
 	args, err := s.parseArgs(hash)
 	if err != nil {
 		return false
@@ -142,29 +142,33 @@ func (p *argon) defaultArgs() *pwArgs {
 		salt:    make([]byte, p.saltLen),
 	}
 }
-func (p *argon) parseArgs(hash string) (*pwArgs, error) {
-	pfx := "$" + p.name + "$"
+func (p *argon) parseArgs(hash []byte) (*pwArgs, error) {
+	pfx := []byte("$" + p.name + "$")
 
-	if !strings.HasPrefix(hash, pfx) {
+	if !bytes.HasPrefix(hash, pfx) {
 		return nil, fmt.Errorf("%w: missing prefix", passwd.ErrBadHash)
 	}
-	hash = strings.TrimPrefix(hash, pfx)
-	args, hash, ok := strings.Cut(hash, "$")
+	hash = bytes.TrimPrefix(hash, pfx)
+	args, hash, ok := bytes.Cut(hash, []byte("$"))
 	if !ok {
 		return nil, fmt.Errorf("%w: missing args", passwd.ErrBadHash)
 	}
-	salt, hash, ok := strings.Cut(hash, "$")
+	salt, hash, ok := bytes.Cut(hash, []byte("$"))
 	if !ok {
 		return nil, fmt.Errorf("%w: missing salt", passwd.ErrBadHash)
 	}
 
 	var err error
 	pass := p.defaultArgs()
-	pass.salt, err = base64.RawStdEncoding.DecodeString(salt)
+
+	pass.salt = make([]byte, base64.RawStdEncoding.DecodedLen(len(salt)))
+	_, err = base64.RawStdEncoding.Decode(pass.salt, salt)
 	if err != nil {
 		return nil, fmt.Errorf("%w: corrupt salt part", passwd.ErrBadHash)
 	}
-	pass.hash, err = base64.RawStdEncoding.DecodeString(hash)
+
+	pass.hash = make([]byte, base64.RawStdEncoding.DecodedLen(len(hash)))
+	_, err = base64.RawStdEncoding.Decode(pass.hash, hash)
 	if err != nil {
 		return nil, fmt.Errorf("%w: corrupt hash part", passwd.ErrBadHash)
 	}
@@ -172,23 +176,23 @@ func (p *argon) parseArgs(hash string) (*pwArgs, error) {
 	pass.name = p.name
 	pass.keyLen = uint32(len(pass.hash))
 
-	for _, part := range strings.Split(args, ",") {
-		if k, v, ok := strings.Cut(part, "="); ok {
-			switch k {
+	for _, part := range bytes.Split(args, []byte(",")) {
+		if k, v, ok := bytes.Cut(part, []byte("=")); ok {
+			switch string(k) {
 			case "v":
-				if i, err := strconv.ParseUint(v, 10, 8); err == nil {
+				if i, err := strconv.ParseUint(string(v), 10, 8); err == nil {
 					pass.version = uint8(i)
 				}
 			case "m":
-				if i, err := strconv.ParseUint(v, 10, 32); err == nil {
+				if i, err := strconv.ParseUint(string(v), 10, 32); err == nil {
 					pass.memory = uint32(i)
 				}
 			case "t":
-				if i, err := strconv.ParseUint(v, 10, 32); err == nil {
+				if i, err := strconv.ParseUint(string(v), 10, 32); err == nil {
 					pass.time = uint32(i)
 				}
 			case "p":
-				if i, err := strconv.ParseUint(v, 10, 8); err == nil {
+				if i, err := strconv.ParseUint(string(v), 10, 8); err == nil {
 					pass.threads = uint8(i)
 				}
 			}
@@ -209,9 +213,19 @@ type pwArgs struct {
 	hash    []byte
 }
 
-func (p *pwArgs) String() string {
-	salt := base64.RawStdEncoding.EncodeToString(p.salt)
-	hash := base64.RawStdEncoding.EncodeToString(p.hash)
+func (p *pwArgs) Bytes() []byte {
+	var b bytes.Buffer
 
-	return fmt.Sprintf("$%s$v=%d,m=%d,t=%d,p=%d$%s$%s", p.name, p.version, p.memory, p.time, p.threads, salt, hash)
+	fmt.Fprintf(&b, "$%s$v=%d,m=%d,t=%d,p=%d$", p.name, p.version, p.memory, p.time, p.threads)
+
+	salt := make([]byte, base64.RawURLEncoding.EncodedLen(len(p.salt)))
+	base64.RawStdEncoding.Encode(salt, p.salt)
+	b.Write(salt)
+
+	hash := make([]byte, base64.RawURLEncoding.EncodedLen(len(p.hash)))
+	base64.RawStdEncoding.Encode(hash, p.hash)
+	b.WriteRune('$')
+	b.Write(hash)
+
+	return b.Bytes()
 }

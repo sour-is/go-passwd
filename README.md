@@ -7,9 +7,12 @@
 Here is an example of usage:
 
 ```go
+// Example of upgrading password hash to a greater complexity.
+//
+// Note: This example uses very unsecure hash functions to allow for predictable output. Use of argon2.Argon2id or scrypt.Scrypt2 for greater hash security is recommended.
 func Example() {
-	pass := "my_pass"
-	hash := "$1$81ed91e1131a3a5a50d8a68e8ef85fa0"
+	pass := []byte("my_pass")
+	hash := []byte("$1$81ed91e1131a3a5a50d8a68e8ef85fa0")
 
 	pwd := passwd.New(
 		argon2.Argon2id, // first is preferred type.
@@ -19,23 +22,25 @@ func Example() {
 	_, err := pwd.Passwd(pass, hash)
 	if err != nil {
 		fmt.Println("fail: ", err)
+		return
 	}
 
 	// Check if we want to update.
 	if !pwd.IsPreferred(hash) {
-		newHash, err := pwd.Passwd(pass, "")
+		newHash, err := pwd.Passwd(pass, nil)
 		if err != nil {
 			fmt.Println("fail: ", err)
+			return
 		}
 
-		fmt.Println("new hash:", newHash)
+		fmt.Println("new hash:", string(newHash)[:31], "...")
 	}
 
 	// Output:
-	//  new hash: $argon2id$...
+	//  new hash: $argon2id$v=19,m=65536,t=1,p=4$ ...
 }
 ```
-https://github.com/sour-is/go-passwd/blob/main/passwd_test.go#L33-L59
+https://github.com/sour-is/go-passwd/blob/main/passwd_test.go#L40-L68
 
 This shows how one would set a preferred hashing type and if the current version of ones password is not the preferred type updates it to enhance the security of the hashed password when someone logs in.
 
@@ -61,12 +66,12 @@ https://github.com/sour-is/go-passwd/blob/main/passwd_test.go#L28-L31
 Circling back to the `IsPreferred` method. A hasher can define its own `IsPreferred` method that will be called to check if the current hash meets the complexity requirements. This is good for updating the password hashes to be more secure over time.
 
 ```go
-func (p *Passwd) IsPreferred(hash string) bool {
+func (p *Passwd) IsPreferred(hash []byte) bool {
 	_, algo := p.getAlgo(hash)
 	if algo != nil && algo == p.d {
 
 		// if the algorithm defines its own check for preference.
-		if ck, ok := algo.(interface{ IsPreferred(string) bool }); ok {
+		if ck, ok := algo.(interface{ IsPreferred([]byte) bool }); ok {
 			return ck.IsPreferred(hash)
 		}
 

@@ -1,13 +1,13 @@
 package scrypt
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/sour-is/go-passwd"
 	"golang.org/x/crypto/scrypt"
@@ -22,8 +22,10 @@ type scryptpw struct {
 
 	name    string
 	encoder interface {
-		EncodeToString(src []byte) string
-		DecodeString(s string) ([]byte, error)
+		EncodedLen(n int) int
+		Encode(dst, src []byte)
+		DecodedLen(x int) int
+		Decode(dst, src []byte) (n int, err error)
 	}
 }
 type scryptArgs struct {
@@ -38,8 +40,10 @@ type scryptArgs struct {
 	hash []byte
 
 	encoder interface {
-		EncodeToString(src []byte) string
-		DecodeString(s string) ([]byte, error)
+		EncodedLen(n int) int
+		Encode(dst, src []byte)
+		DecodedLen(x int) int
+		Decode(dst, src []byte) (n int, err error)
 	}
 }
 
@@ -55,37 +59,37 @@ var Scrypt2 = &scryptpw{
 	name: "s2", encoder: base64.RawStdEncoding,
 }
 
-func (s *scryptpw) Passwd(pass string, check string) (string, error) {
+func (s *scryptpw) Passwd(pass, check []byte) ([]byte, error) {
 	var args *scryptArgs
 	var err error
 
-	if check == "" {
+	if check == nil {
 		args = s.defaultArgs()
 		_, err := rand.Read(args.salt)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		args.hash, err = scrypt.Key([]byte(pass), args.salt, args.N, args.R, args.P, args.DKLen)
+		args.hash, err = scrypt.Key(pass, args.salt, args.N, args.R, args.P, args.DKLen)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 	} else {
 		args, err = s.parseArgs(check)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		hash, err := scrypt.Key([]byte(pass), args.salt, args.N, args.R, args.P, args.DKLen)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		if subtle.ConstantTimeCompare(hash, args.hash) == 0 {
-			return "", passwd.ErrNoMatch
+			return nil, passwd.ErrNoMatch
 		}
 	}
 
-	return args.String(), nil
+	return args.Bytes(), nil
 }
 func (s *scryptpw) ApplyPasswd(p *passwd.Passwd) {
 	p.Register(s.name, s)
@@ -93,7 +97,7 @@ func (s *scryptpw) ApplyPasswd(p *passwd.Passwd) {
 		p.SetFallthrough(s)
 	}
 }
-func (s *scryptpw) IsPreferred(hash string) bool {
+func (s *scryptpw) IsPreferred(hash []byte) bool {
 	args, err := s.parseArgs(hash)
 	if err != nil {
 		return false
@@ -129,49 +133,52 @@ func (s *scryptpw) defaultArgs() *scryptArgs {
 		encoder: s.encoder,
 	}
 }
-func (s *scryptpw) parseArgs(hash string) (*scryptArgs, error) {
+
+func (s *scryptpw) parseArgs(hash []byte) (*scryptArgs, error) {
 	args := s.defaultArgs()
 
-	name := "$" + s.name + "$"
-	hash = strings.TrimPrefix(hash, name)
+	name := []byte("$" + s.name + "$")
+	hash = bytes.TrimPrefix(hash, name)
 
-	N, hash, ok := strings.Cut(hash, "$")
+	N, hash, ok := bytes.Cut(hash, []byte("$"))
 	if !ok {
 		return nil, fmt.Errorf("%w: missing args: N", passwd.ErrBadHash)
 	}
-	if n, err := strconv.Atoi(N); err == nil {
+	if n, err := strconv.Atoi(string(N)); err == nil {
 		args.N = n
 	}
 
-	R, hash, ok := strings.Cut(hash, "$")
+	R, hash, ok := bytes.Cut(hash, []byte("$"))
 	if !ok {
 		return nil, fmt.Errorf("%w: missing args: R", passwd.ErrBadHash)
 	}
-	if r, err := strconv.Atoi(R); err == nil {
+	if r, err := strconv.Atoi(string(R)); err == nil {
 		args.R = r
 	}
 
-	P, hash, ok := strings.Cut(hash, "$")
+	P, hash, ok := bytes.Cut(hash, []byte("$"))
 	if !ok {
 		return nil, fmt.Errorf("%w: missing args: P", passwd.ErrBadHash)
 	}
-	if p, err := strconv.Atoi(P); err == nil {
+	if p, err := strconv.Atoi(string(P)); err == nil {
 		args.P = p
 	}
 
-	salt, hash, ok := strings.Cut(hash, "$")
+	salt, hash, ok := bytes.Cut(hash, []byte("$"))
 	if !ok {
 		return nil, fmt.Errorf("%w: missing args: salt", passwd.ErrBadHash)
 	}
 
 	var err error
-	args.salt, err = s.encoder.DecodeString(salt)
+	args.salt = make([]byte, s.encoder.DecodedLen(len(salt)))
+	_, err = s.encoder.Decode(args.salt, salt)
 	if err != nil {
 		return nil, fmt.Errorf("%w: corrupt salt part", passwd.ErrBadHash)
 	}
 	args.SaltLen = len(args.salt)
 
-	args.hash, err = s.encoder.DecodeString(hash)
+	args.hash = make([]byte, s.encoder.DecodedLen(len(hash)))
+	_, err = s.encoder.Decode(args.hash, hash)
 	if err != nil {
 		return nil, fmt.Errorf("%w: corrupt hash part", passwd.ErrBadHash)
 	}
@@ -179,22 +186,38 @@ func (s *scryptpw) parseArgs(hash string) (*scryptArgs, error) {
 
 	return args, nil
 }
-func (s *scryptArgs) String() string {
-	var name string
-	if s.name != "s1" {
-		name = "$" + s.name + "$"
-	}
-	salt := s.encoder.EncodeToString(s.salt)
-	hash := s.encoder.EncodeToString(s.hash)
 
-	return fmt.Sprintf("%s%d$%d$%d$%s$%s", name, s.N, s.R, s.P, salt, hash)
+func (s *scryptArgs) Bytes() []byte {
+	var b bytes.Buffer
+
+	if s.name != "s1" {
+		b.WriteRune('$')
+		b.WriteString(s.name)
+		b.WriteRune('$')
+	}
+
+	fmt.Fprintf(&b, "%d$%d$%d", s.N, s.R, s.P)
+
+	salt := make([]byte, s.encoder.EncodedLen(len(s.salt)))
+	s.encoder.Encode(salt, s.salt)
+	b.WriteRune('$')
+	b.Write(salt)
+
+	hash := make([]byte, s.encoder.EncodedLen(len(s.hash)))
+	s.encoder.Encode(hash, s.hash)
+	b.WriteRune('$')
+	b.Write(hash)
+
+	return b.Bytes()
 }
 
 type hexenc struct{}
 
-func (hexenc) EncodeToString(src []byte) string {
-	return hex.EncodeToString(src)
+func (hexenc) Encode(dst, src []byte) {
+	hex.Encode(dst, src)
 }
-func (hexenc) DecodeString(s string) ([]byte, error) {
-	return hex.DecodeString(s)
+func (hexenc) EncodedLen(n int) int { return hex.EncodedLen(n) }
+func (hexenc) Decode(dst, src []byte) (n int, err error) {
+	return hex.Decode(dst, src)
 }
+func (hexenc) DecodedLen(x int) int { return hex.DecodedLen(x) }

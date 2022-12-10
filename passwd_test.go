@@ -1,24 +1,28 @@
 package passwd_test
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/matryer/is"
 	"github.com/sour-is/go-passwd"
+	"github.com/sour-is/go-passwd/pkg/argon2"
 	"github.com/sour-is/go-passwd/pkg/unix"
 )
 
 type plainPasswd struct{}
 
-func (p *plainPasswd) Passwd(pass string, check string) (string, error) {
-	if check == "" {
-		return fmt.Sprint("$plain$", pass), nil
+func (p *plainPasswd) Passwd(pass, check []byte) ([]byte, error) {
+	if check == nil {
+		var b bytes.Buffer
+		b.WriteString("$plain$")
+		b.Write(pass)
+		return b.Bytes(), nil
 	}
 
-	if subtle.ConstantTimeCompare([]byte(pass), []byte(strings.TrimPrefix(check, "$plain$"))) == 1 {
+	if subtle.ConstantTimeCompare([]byte(pass), []byte(bytes.TrimPrefix(check, []byte("$plain$")))) == 1 {
 		return check, nil
 	}
 
@@ -34,50 +38,52 @@ func (p *plainPasswd) ApplyPasswd(passwd *passwd.Passwd) {
 //
 // Note: This example uses very unsecure hash functions to allow for predictable output. Use of argon2.Argon2id or scrypt.Scrypt2 for greater hash security is recommended.
 func Example() {
-	pass := "my_pass"
-	hash := "my_pass"
+	pass := []byte("my_pass")
+	hash := []byte("$1$81ed91e1131a3a5a50d8a68e8ef85fa0")
 
 	pwd := passwd.New(
-		&unix.MD5{}, // first is preferred type.
-		&plainPasswd{},
+		argon2.Argon2id, // first is preferred type.
+		&unix.MD5{},
 	)
 
 	_, err := pwd.Passwd(pass, hash)
 	if err != nil {
 		fmt.Println("fail: ", err)
+		return
 	}
 
 	// Check if we want to update.
 	if !pwd.IsPreferred(hash) {
-		newHash, err := pwd.Passwd(pass, "")
+		newHash, err := pwd.Passwd(pass, nil)
 		if err != nil {
 			fmt.Println("fail: ", err)
+			return
 		}
 
-		fmt.Println("new hash:", newHash)
+		fmt.Println("new hash:", string(newHash)[:31], "...")
 	}
 
 	// Output:
-	//  new hash: $1$81ed91e1131a3a5a50d8a68e8ef85fa0
+	//  new hash: $argon2id$v=19,m=65536,t=1,p=4$ ...
 }
 
 func TestPasswdHash(t *testing.T) {
 	type testCase struct {
-		pass, hash string
+		pass, hash []byte
 	}
 
 	tests := []testCase{
-		{"passwd", "passwd"},
-		{"passwd", "$plain$passwd"},
+		{[]byte("passwd"), []byte("passwd")},
+		{[]byte("passwd"), []byte("$plain$passwd")},
 	}
 	algos := []passwd.Passwder{&plainPasswd{}}
 
 	is := is.New(t)
 	// Generate additional test cases for each algo.
 	for _, algo := range algos {
-		hash, err := algo.Passwd("passwd", "")
+		hash, err := algo.Passwd([]byte("passwd"), nil)
 		is.NoErr(err)
-		tests = append(tests, testCase{"passwd", hash})
+		tests = append(tests, testCase{[]byte("passwd"), hash})
 	}
 
 	pass := passwd.New(algos...)
@@ -98,9 +104,9 @@ func TestPasswdIsPreferred(t *testing.T) {
 
 	pass := passwd.New(&plainPasswd{})
 
-	ok := pass.IsPreferred("$plain$passwd")
+	ok := pass.IsPreferred([]byte("$plain$passwd"))
 	is.True(ok)
 
-	ok = pass.IsPreferred("$foo$passwd")
+	ok = pass.IsPreferred([]byte("$foo$passwd"))
 	is.True(!ok)
 }

@@ -16,11 +16,11 @@ var All = []passwd.Passwder{
 
 type MD5 struct{}
 
-func (p *MD5) Passwd(pass string, check string) (string, error) {
+func (p *MD5) Passwd(pass, check []byte) ([]byte, error) {
 	h := md5.New()
-	fmt.Fprint(h, pass)
+	h.Write(pass)
 
-	hash := fmt.Sprintf("$1$%x", h.Sum(nil))
+	hash := []byte(fmt.Sprintf("$1$%x", h.Sum(nil)))
 
 	return hashCheck(hash, check)
 }
@@ -31,18 +31,18 @@ func (p *MD5) ApplyPasswd(passwd *passwd.Passwd) {
 
 type Blowfish struct{}
 
-func (p *Blowfish) Passwd(pass string, check string) (string, error) {
-	if check == "" {
-		b, err := bcrypt.GenerateFromPassword([]byte(pass), bcrypt.DefaultCost)
+func (p *Blowfish) Passwd(pass, check []byte) ([]byte, error) {
+	if check == nil {
+		b, err := bcrypt.GenerateFromPassword(pass, bcrypt.DefaultCost)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		return string(b), nil
+		return b, nil
 	}
 
-	err := bcrypt.CompareHashAndPassword([]byte(check), []byte(pass))
+	err := bcrypt.CompareHashAndPassword(check, pass)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return check, nil
 }
@@ -51,42 +51,12 @@ func (p *Blowfish) ApplyPasswd(passwd *passwd.Passwd) {
 	passwd.Register("2a", p)
 }
 
-// type SHA256 struct{}
-
-// func (p *SHA256) Passwd(pass string, check string) (string, error) {
-// 	h := sha256.New()
-// 	fmt.Fprint(h, pass)
-
-// 	hash := fmt.Sprintf("$5$%x", h.Sum(nil))
-
-// 	return hashCheck(hash, check)
-// }
-
-// func (p *SHA256) ApplyPasswd(passwd *passwd.Passwd) {
-// 	passwd.Register("5", p)
-// }
-
-// type SHA512 struct{}
-
-// func (p *SHA512) Passwd(pass string, check string) (string, error) {
-// 	h := sha512.New()
-// 	fmt.Fprint(h, pass)
-
-// 	hash := fmt.Sprintf("$6$%x", h.Sum(nil))
-
-// 	return hashCheck(hash, check)
-// }
-
-// func (p *SHA512) ApplyPasswd(passwd *passwd.Passwd) {
-// 	passwd.Register("6", p)
-// }
-
-func hashCheck(hash, check string) (string, error) {
-	if check == "" {
+func hashCheck(hash, check []byte) ([]byte, error) {
+	if check == nil {
 		return hash, nil
 	}
 
-	if subtle.ConstantTimeCompare([]byte(hash), []byte(check)) == 1 {
+	if subtle.ConstantTimeCompare(hash, check) == 1 {
 		return hash, nil
 	}
 

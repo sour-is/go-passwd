@@ -12,20 +12,20 @@ import (
 
 func TestPasswdHash(t *testing.T) {
 	type testCase struct {
-		pass, hash string
+		pass, hash []byte
 	}
 
 	tests := []testCase{
-		{"passwd", "$1$76a2173be6393254e72ffa4d6df1030a"},
-		{"passwd", "$2a$10$GkJwB.nOaaeAvRGgyl2TI.kruM8e.iIo.OozgdslegpNlC/vIFKRq"},
+		{[]byte("passwd"), []byte("$1$76a2173be6393254e72ffa4d6df1030a")},
+		{[]byte("passwd"), []byte("$2a$10$GkJwB.nOaaeAvRGgyl2TI.kruM8e.iIo.OozgdslegpNlC/vIFKRq")},
 	}
 
 	is := is.New(t)
 	// Generate additional test cases for each algo.
 	for _, algo := range unix.All {
-		hash, err := algo.Passwd("passwd", "")
+		hash, err := algo.Passwd([]byte("passwd"), nil)
 		is.NoErr(err)
-		tests = append(tests, testCase{"passwd", hash})
+		tests = append(tests, testCase{[]byte("passwd"), hash})
 	}
 
 	pass := passwd.New(unix.All...)
@@ -35,7 +35,7 @@ func TestPasswdHash(t *testing.T) {
 			is := is.New(t)
 
 			hash, err := pass.Passwd(tt.pass, tt.hash)
-			is.Equal(hash, tt.hash)
+			is.Equal(string(hash), string(tt.hash))
 			is.NoErr(err)
 		})
 	}

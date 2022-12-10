@@ -13,7 +13,7 @@ import (
 
 func TestPasswdHash(t *testing.T) {
 	type testCase struct {
-		pass, hash string
+		pass, hash []byte
 	}
 
 	tests := []testCase{}
@@ -22,9 +22,9 @@ func TestPasswdHash(t *testing.T) {
 	is := is.New(t)
 	// Generate additional test cases for each algo.
 	for _, algo := range algos {
-		hash, err := algo.Passwd("passwd", "")
+		hash, err := algo.Passwd([]byte("passwd"), nil)
 		is.NoErr(err)
-		tests = append(tests, testCase{"passwd", hash})
+		tests = append(tests, testCase{[]byte("passwd"), hash})
 	}
 
 	pass := passwd.New(algos...)
@@ -45,12 +45,12 @@ func TestPasswdIsPreferred(t *testing.T) {
 
 	pass := passwd.New(argon2.Argon2i, &unix.MD5{})
 
-	ok := pass.IsPreferred("$argon2i$v=19,m=32768,t=3,p=4$LdaB2Z4EI4lwpxTc78QUFw$VhlPSK0tdF226QCLC24IIrmQcMBmg47Ik9h/Yq6htFI")
+	ok := pass.IsPreferred([]byte("$argon2i$v=19,m=32768,t=3,p=4$LdaB2Z4EI4lwpxTc78QUFw$VhlPSK0tdF226QCLC24IIrmQcMBmg47Ik9h/Yq6htFI"))
 	is.True(ok)
 
-	ok = pass.IsPreferred("$argon2i$v=19,m=1024,t=2,p=4$LdaB2Z4EI4lwpxTc78QUFw$VhlPSK0tdF226QCLC24IIrmQcMBmg47Ik9h/Yq6htFI")
+	ok = pass.IsPreferred([]byte("$argon2i$v=19,m=1024,t=2,p=4$LdaB2Z4EI4lwpxTc78QUFw$VhlPSK0tdF226QCLC24IIrmQcMBmg47Ik9h/Yq6htFI"))
 	is.True(!ok)
 
-	ok = pass.IsPreferred("$1$76a2173be6393254e72ffa4d6df1030a")
+	ok = pass.IsPreferred([]byte("$1$76a2173be6393254e72ffa4d6df1030a"))
 	is.True(!ok)
 }

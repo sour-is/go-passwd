@@ -1,13 +1,13 @@
 package passwd
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
-	"strings"
 )
 
 type Passwder interface {
-	Passwd(string, string) (string, error)
+	Passwd(pass, hash []byte) ([]byte, error)
 	ApplyPasswd(*Passwd)
 }
 
@@ -45,8 +45,8 @@ func (p *Passwd) SetFallthrough(pass Passwder) {
 	p.f = pass
 }
 
-func (p *Passwd) Passwd(pass, hash string) (string, error) {
-	if hash == "" {
+func (p *Passwd) Passwd(pass, hash []byte) ([]byte, error) {
+	if hash == nil {
 		return p.d.Passwd(pass, hash)
 	}
 	name, algo := p.getAlgo(hash)
@@ -54,17 +54,17 @@ func (p *Passwd) Passwd(pass, hash string) (string, error) {
 		algo = p.f
 	}
 	if algo == nil {
-		return "", fmt.Errorf("%w: %s", ErrNoHandler, name)
+		return nil, fmt.Errorf("%w: %s", ErrNoHandler, name)
 	}
 	return algo.Passwd(pass, hash)
 }
 
-func (p *Passwd) IsPreferred(hash string) bool {
+func (p *Passwd) IsPreferred(hash []byte) bool {
 	_, algo := p.getAlgo(hash)
 	if algo != nil && algo == p.d {
 
 		// if the algorithm defines its own check for preference.
-		if ck, ok := algo.(interface{ IsPreferred(string) bool }); ok {
+		if ck, ok := algo.(interface{ IsPreferred([]byte) bool }); ok {
 			return ck.IsPreferred(hash)
 		}
 
@@ -73,17 +73,18 @@ func (p *Passwd) IsPreferred(hash string) bool {
 	return false
 }
 
-func (p *Passwd) getAlgo(hash string) (string, Passwder) {
+func (p *Passwd) getAlgo(hash []byte) (string, Passwder) {
 	var algo string
-	if !strings.HasPrefix(hash, "$") {
+	if !bytes.HasPrefix(hash, []byte("$")) {
 		return p.getName(p.f), p.f
 	}
 
-	if _, h, ok := strings.Cut(hash, "$"); ok {
-		algo, _, ok = strings.Cut(h, "$")
+	if _, h, ok := bytes.Cut(hash, []byte("$")); ok {
+		a, _, ok := bytes.Cut(h, []byte("$"))
 		if !ok {
 			return "", nil
 		}
+		algo = string(a)
 
 		if passwd, ok := p.m[algo]; ok {
 			return algo, passwd
