@@ -5,8 +5,9 @@ import (
 	"crypto/subtle"
 	"fmt"
 
-	"github.com/sour-is/go-passwd"
 	"golang.org/x/crypto/bcrypt"
+
+	"go.sour.is/passwd"
 )
 
 var All = []passwd.Passwder{

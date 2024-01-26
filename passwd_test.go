@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/matryer/is"
-	"github.com/sour-is/go-passwd"
-	"github.com/sour-is/go-passwd/pkg/argon2"
-	"github.com/sour-is/go-passwd/pkg/unix"
+	"go.sour.is/passwd"
+	"go.sour.is/passwd/pkg/argon2"
+	"go.sour.is/passwd/pkg/unix"
 )
 
 type plainPasswd struct{}

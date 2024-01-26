@@ -1,4 +1,4 @@
-module github.com/sour-is/go-passwd
+module go.sour.is/passwd
 
 go 1.19
 

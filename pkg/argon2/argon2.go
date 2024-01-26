@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/crypto/argon2"
 
-	"github.com/sour-is/go-passwd"
+	"go.sour.is/passwd"
 )
 
 type argon struct {

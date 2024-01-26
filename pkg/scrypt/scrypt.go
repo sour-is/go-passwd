@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/sour-is/go-passwd"
+	"go.sour.is/passwd"
 	"golang.org/x/crypto/scrypt"
 )
 

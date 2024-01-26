@@ -6,9 +6,9 @@ import (
 
 	"github.com/matryer/is"
 
-	"github.com/sour-is/go-passwd"
-	"github.com/sour-is/go-passwd/pkg/scrypt"
-	"github.com/sour-is/go-passwd/pkg/unix"
+	"go.sour.is/passwd"
+	"go.sour.is/passwd/pkg/scrypt"
+	"go.sour.is/passwd/pkg/unix"
 )
 
 func TestPasswdHash(t *testing.T) {
